@@ -3,6 +3,7 @@ package checks
 import (
 	"bytes"
 	"net/smtp"
+	"strconv"
 )
 
 type Smtp struct {
@@ -24,7 +25,7 @@ func (a unencryptedAuth) Start(server *smtp.ServerInfo) (string, []byte, error) 
 }
 
 func (c Smtp) Run(teamID uint, boxIp string, res chan Result) {
-	m, err := smtp.Dial(boxIp + ":" + c.Port)
+	m, err := smtp.Dial(boxIp + ":" + int64(c.Port),10)
 
 	if err != nil {
 		res <- Result{
