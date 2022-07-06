@@ -8,7 +8,7 @@ A truly euphoric competition scoring engine experience: the DWAYNE-INATOR-5000.
 Usage
 -----
 
-1. Download this repository (`git clone https://github.com/DSU-DefSec/DWAYNE-INATOR-5000`).
+1. Download this repository (`git clone https://github.com/jfisher009/DWAYNE-INATOR-5000`).
 2. Compile the code (`cd DWAYNE-INATOR-5000; go build`).
    - Unfortunately, you need `gcc` for `go-sqlite3`.
 3. Save your configuration as `./dwayne.conf`.
