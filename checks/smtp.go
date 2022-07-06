@@ -1,10 +1,7 @@
 package checks
 
 import (
-	"context"
-	"crypto/tls"
-	"fmt"
-	"net"
+	"bytes"
 	"net/smtp"
 )
 
@@ -27,107 +24,39 @@ func (a unencryptedAuth) Start(server *smtp.ServerInfo) (string, []byte, error) 
 }
 
 func (c Smtp) Run(teamID uint, boxIp string, res chan Result) {
-	// Create a dialer
-	dialer := net.Dialer{
-		Timeout: GlobalTimeout,
-	}
+	m, err := smtp.Dial(boxIp + ":" + c.Port)
 
-	// ***********************************************
-	// Set up custom auth for bypassing net/smtp protections
-	username, password := getCreds(teamID, c.CredList, c.Name)
-	auth := unencryptedAuth{smtp.PlainAuth("", username, password, boxIp)}
-	// ***********************************************
-
-	// The good way to do auth
-	// auth := smtp.PlainAuth("", d.Username, d.Password, d.Host)
-	// Create TLS config
-	tlsConfig := tls.Config{
-		InsecureSkipVerify: true,
-	}
-
-	// Declare these for the below if block
-	var conn net.Conn
-	var err error
-
-	if c.Encrypted {
-		conn, err = tls.DialWithDialer(&dialer, "tcp", fmt.Sprintf("%s:%s", boxIp, c.Port), &tlsConfig)
-	} else {
-		conn, err = dialer.DialContext(context.TODO(), "tcp", fmt.Sprintf("%s:%s", boxIp, c.Port))
-	}
 	if err != nil {
 		res <- Result{
-			Error: "connection to server failed",
-			Debug: err.Error(),
-		}
-		return
-	}
-	defer conn.Close()
-
-	// Create smtp client
-	sconn, err := smtp.NewClient(conn, boxIp)
-	if err != nil {
-		res <- Result{
-			Error: "smtp client creation failed",
-			Debug: err.Error(),
-		}
-		return
-	}
-	defer sconn.Quit()
-
-	// Login
-	err = sconn.Auth(auth)
-	if err != nil {
-		res <- Result{
-			Error: "login failed",
+			Error: "error sending email",
 			Debug: err.Error(),
 		}
 		return
 	}
 
-	// Set the sender
-	err = sconn.Mail(c.Sender)
+	defer m.Close()
+	m.Mail(c.Sender)
+	m.Rcpt(c.Receiver)
+	wc, err := m.Data()
 	if err != nil {
 		res <- Result{
-			Error: "setting sender failed",
-			Debug: err.Error(),
-		}
-		return
-	}
-
-	// Set the reciver
-	err = sconn.Rcpt(c.Receiver)
-	if err != nil {
-		res <- Result{
-			Error: "setting receiver failed",
-			Debug: err.Error(),
-		}
-		return
-	}
-
-	// Create email writer
-	wc, err := sconn.Data()
-	if err != nil {
-		res <- Result{
-			Error: "creating email writer failed",
+			Error: "error sending emaiL",
 			Debug: err.Error(),
 		}
 		return
 	}
 	defer wc.Close()
-
-	// Write the body
-	_, err = fmt.Fprintf(wc, c.Body)
-	if err != nil {
-		res <- Result{
-			Error: "writing body failed",
+	buf := bytes.NewBufferString(c.Body)
+	if _, err = buf.WriteTo(wc); err != nil {
+		res <- Result {
+			Error: "error sending email",
 			Debug: err.Error(),
 		}
-		return
 	}
 
-	res <- Result{
+	res <- Result {
 		Status: true,
-		Debug:  "successfully wrote '" + c.Body + "' to " + c.Receiver + " from " + c.Sender,
+		Debug:  "successfully sent email",
 	}
 	return
 }
